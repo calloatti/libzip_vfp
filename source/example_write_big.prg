@@ -1,4 +1,4 @@
-*!* example_write
+*!* example_write_big
 
 *!* this example creates an example_write.zip with the dlls located in windows\system32
 
@@ -14,9 +14,9 @@ m.useprogress = .t.
 
 m.zippassword = ''
 
-*!* set zipdatetime to '' to keep original datetimes of folders/files
+*!* set zipdatetime to '' to keep original datetimes of files
 
-*m.zipdatetime = datetime(2000, 1, 1, 0, 0, 0)
+*m.zipdatetime = datetime(2021, 1, 1, 0, 0, 0)
 
 m.zipdatetime = ''
 
@@ -38,7 +38,7 @@ m.ofiler.SortBy = 1
 
 *!* set to 1 to include dlls in subfolders
 
-m.ofiler.SubFolder = 0
+m.ofiler.SubFolder = 1
 
 m.ofiler.find(0)
 
@@ -46,9 +46,9 @@ _libzipnew()
 
 m.zipbasepath = getenv("windir")
 
-m.maxfiles = 200	&& m.ofiler.files.count
+m.maxfiles = 2900
 
-for m.fidx = 1 to m.maxfiles
+for m.fidx = 1900 to min(m.maxfiles, m.ofiler.files.count)
 
 	m.sfilepath = m.ofiler.files.item(m.fidx).path + m.ofiler.files.item(m.fidx).name
 
@@ -85,4 +85,3 @@ wait clear
 
 
 
-   

@@ -35,6 +35,36 @@ define class _libzip as custom
 
 	endproc
 
+	procedure destroy
+
+		if this.zip_t # 0
+
+			zip_close(this.zip_t)
+
+		endif
+
+		if this.zip_buffer # 0 then
+
+			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_buffer)
+
+		endif
+
+		if this.zip_stat_t # 0 then
+
+			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_stat_t)
+
+		endif
+
+		zip_error_fini(this.zip_error_t)
+
+		if this.zip_error_t # 0 then
+
+			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_error_t)
+
+		endif
+
+	endproc
+
 	procedure initarrays
 
 		this.evalidfields		= 0
@@ -77,9 +107,12 @@ define class _libzip as custom
 		declare 		zip_error_init in ZIP_DLL integer zip_error_t
 		declare string 	zip_error_strerror in ZIP_DLL integer zip_error_t
 		declare integer zip_fclose in ZIP_DLL integer zip_file_t
+		declare integer zip_file_extra_field_get in ZIP_DLL integer zip_t, integer u32index1, integer u32index2, short extra_field_index, short @idp, short @lenp, integer zip_flags_t
+		declare integer zip_file_extra_field_get_by_id in ZIP_DLL integer zip_t, integer u32index1, integer u32index2, short extra_field_id, short extra_field_index, short @lenp, integer zip_flags_t
 		declare integer zip_fopen_index in ZIP_DLL integer zip_t, integer u32index1, integer u32index2, integer zip_flags_t
 		declare integer zip_fread in ZIP_DLL as zip_fread_isii integer zip_file_t, string  @strbuffer, integer nbytes1, integer nbytes2
 		declare integer zip_fread in ZIP_DLL as zip_fread_iiii integer zip_file_t, integer strbuffer, integer nbytes1, integer nbytes2
+		declare integer zip_get_error in ZIP_DLL integer zip_t
 		declare string 	zip_get_name in ZIP_DLL integer zip_t, integer u32index1, integer u32index2, integer zip_flags_t
 		declare integer zip_get_num_entries in ZIP_DLL integer zip_t, integer zip_flags_t
 		declare integer zip_name_locate in ZIP_DLL integer zip_t, string fname, integer zip_flags_t
@@ -98,6 +131,11 @@ define class _libzip as custom
 		declare integer HeapFree in kernel32.dll as _libzip_heapfree integer hheap, integer dwflags, integer lpmem
 		declare integer GetProcessHeap in Kernel32.dll as _libzip_getprocessheap
 		declare integer HeapSize in kernel32.dll as _libzip_heapsize integer hHeap, integer dwFlags, integer lpMem
+		declare integer SHCreateDirectory in shell32.dll as _libzip_shcreatedirectory string ihwnd, string pszpath
+		declare integer SetFileTime in kernel32.dll as _libzip_setfiletime integer hFile, string lpCreationTime, string lpLastAccessTime, string lpLastWriteTime
+		declare integer CreateFile in kernel32.dll as _libzip_createfile string lpfilename, integer dwdesiredaccess, integer dwsharemode, integer lpsecurityattributes, integer dwcreationdisposition, integer dwflagsandattributes, integer htemplatefile
+		declare integer CloseHandle in kernel32.dll as _libzip_closehandle integer hobject
+		declare integer DeleteFile in kernel32.dll as _libzip_deletefile string lpfilename
 
 		*!* time_zone_information 172 bytes
 		declare integer GetTimeZoneInformation in kernel32.dll as _libzip_gettimezoneinformation string @time_zone_information
@@ -186,110 +224,6 @@ define class _libzip as custom
 			endif
 
 		endfor
-
-	endproc
-
-	procedure zipclose
-
-		if this.zip_t # 0
-
-			zip_close(this.zip_t)
-
-		endif
-
-		if this.zip_buffer # 0 then
-
-			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_buffer)
-
-			this.zip_buffer = 0
-		
-		endif
-		
-		*!* zip_open_from_source(3), zip_file_add(3), and
-		*!* zip_file_replace(3) will decrement the reference count of the zip_source_t when they are
-		*!* done using it, so zip_source_free(3) only needs to be called when these functions return
-		*!* an error.
-
-		*!*	if this.zip_source_t # 0
-
-		*!*		zip_source_free(this.zip_source_t)
-
-		*!*	endif
-
-		dimension this.evalidfields[1]
-		dimension this.ename[1]
-		dimension this.eindex[1]
-		dimension this.esize[1]
-		dimension this.ecompressedsize[1]
-		dimension this.edatetime[1]
-		dimension this.ecrc[1]
-		dimension this.ecompressionmethod[1]
-		dimension this.eencryptionmethod[1]
-		dimension this.eflags[1]
-		dimension this.eisdirectory[1]
-		dimension this.epath[1]
-
-		this.initarrays()
-
-		this.entries	  = 0
-		this.zip_source_t = 0
-		this.zip_t		  = 0
-
-	endproc
-
-	procedure zipentrytostring
-
-		lparameters pidxorfilename
-
-		local bytesread, filebytes, idx, zip_file_t
-
-		m.filebytes = ''
-
-		if vartype(m.pidxorfilename) = 'C'
-
-			m.idx = this.zipnamelocate(m.pidxorfilename, .t.)
-
-		else
-
-			m.idx = m.pidxorfilename
-
-		endif
-
-		if m.idx > 0 and this.eisdirectory(m.idx) = 0
-
-			if this.evalidfields(m.idx) = 0 then
-
-				this.zipentrygetstats(m.idx)
-
-			endif
-
-			m.zip_file_t = zip_fopen_index(this.zip_t, m.idx - 1, 0, ZIP_FL_UNCHANGED)
-
-			if m.zip_file_t = 0 then
-
-				error 'zip_fopen_index'
-
-			endif
-
-			m.filebytes = space(this.esize(m.idx))
-
-			m.bytesread = zip_fread_isii(m.zip_file_t, @m.filebytes, this.esize(m.idx), 0)
-
-			if m.bytesread = -1 then
-
-				error 'zip_fread'
-
-			endif
-
-			if zip_fclose(m.zip_file_t) # 0 then
-
-				error 'zip_fclose'
-
-			endif
-
-		endif
-
-		return m.filebytes
 
 	endproc
 
@@ -383,6 +317,110 @@ define class _libzip as custom
 
 	endproc
 
+	procedure zipclose
+
+		if this.zip_t # 0
+
+			zip_close(this.zip_t)
+
+		endif
+
+		if this.zip_buffer # 0 then
+
+			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_buffer)
+
+			this.zip_buffer = 0
+
+		endif
+
+		*!* zip_open_from_source(3), zip_file_add(3), and
+		*!* zip_file_replace(3) will decrement the reference count of the zip_source_t when they are
+		*!* done using it, so zip_source_free(3) only needs to be called when these functions return
+		*!* an error.
+
+		*!*	if this.zip_source_t # 0
+
+		*!*		zip_source_free(this.zip_source_t)
+
+		*!*	endif
+
+		dimension this.evalidfields[1]
+		dimension this.ename[1]
+		dimension this.eindex[1]
+		dimension this.esize[1]
+		dimension this.ecompressedsize[1]
+		dimension this.edatetime[1]
+		dimension this.ecrc[1]
+		dimension this.ecompressionmethod[1]
+		dimension this.eencryptionmethod[1]
+		dimension this.eflags[1]
+		dimension this.eisdirectory[1]
+		dimension this.epath[1]
+
+		this.initarrays()
+
+		this.entries	  = 0
+		this.zip_source_t = 0
+		this.zip_t		  = 0
+
+	endproc
+
+	procedure zipentrytostring
+
+		lparameters pidxorfilename
+
+		local bytesread, filebytes, idx, zip_file_t
+
+		m.filebytes = ''
+
+		if vartype(m.pidxorfilename) = 'C'
+
+			m.idx = this.zipnamelocate(m.pidxorfilename, .t.)
+
+		else
+
+			m.idx = m.pidxorfilename
+
+		endif
+
+		if m.idx > 0 and this.eisdirectory(m.idx) = 0
+
+			if this.evalidfields(m.idx) = 0 then
+
+				this.zipentrygetstats(m.idx)
+
+			endif
+
+			m.zip_file_t = zip_fopen_index(this.zip_t, m.idx - 1, 0, ZIP_FL_UNCHANGED)
+
+			if m.zip_file_t = 0 then
+
+				error 'zip_fopen_index'
+
+			endif
+
+			m.filebytes = space(this.esize(m.idx))
+
+			m.bytesread = zip_fread_isii(m.zip_file_t, @m.filebytes, this.esize(m.idx), 0)
+
+			if m.bytesread = -1 then
+
+				error 'zip_fread'
+
+			endif
+
+			if zip_fclose(m.zip_file_t) # 0 then
+
+				error 'zip_fclose'
+
+			endif
+
+		endif
+
+		return m.filebytes
+
+	endproc
+
 	procedure zipentrytobuffer
 
 		lparameters pidxorfilename
@@ -441,83 +479,137 @@ define class _libzip as custom
 
 	procedure zipentrytofile
 
-		lparameters pidx, ppath
+		lparameters pidxorfilename, ppath
 
-		local bytesread, byteswrite, cbytes, fhandle, nbytes, zip_file_t
+		local bytesread, byteswrite, cbytes, cpath, fhandle, idx, nbytes, result, sfilepath, zip_file_t
 
-		if this.eisdirectory(m.pidx) = 0
+		if vartype(m.pidxorfilename) = 'C'
 
-			m.ppath = addbs(m.ppath) + this.ename(m.pidx)
+			m.idx = this.zipnamelocate(m.pidxorfilename, .t.)
 
-			if not directory(justpath(m.ppath))
+		else
 
-				mkdir (justpath(m.ppath))
+			m.idx = m.pidxorfilename
 
-			endif
+		endif
 
-			if file(m.ppath)
+		m.result = .f.
 
-				m.fhandle = fopen(m.ppath, 2)
+		if m.idx < 1
 
-				fchsize(m.fhandle, 0)
+			return m.result
 
-			else
+		endif
 
-				m.fhandle = fcreate(m.ppath)
+		m.sfilepath = chrtran(addbs(m.ppath) + this.ename(m.idx), '/', '\')
 
-			endif
+		if this.eisdirectory(m.idx) = 1
 
-			m.zip_file_t = zip_fopen_index(this.zip_t, m.pidx - 1, 0, ZIP_FL_UNCHANGED)
+			m.cpath = rtrim(m.sfilepath, 1, '\')
 
-			if m.zip_file_t = 0 then
+			_libzip_shcreatedirectory(null, strconv(m.cpath, 5) + 0h00)
 
-				error 'zip_fopen_index'
+			if directory(m.cpath) = .t.
 
-			endif
+				this._setfiletime(m.idx, m.cpath)
 
-			m.nbytes = 4096
-
-			m.cbytes = replicate(0h00, m.nbytes)
-
-			do while .t.
-
-				m.bytesread = zip_fread_isii(m.zip_file_t, @m.cbytes, m.nbytes, 0)
-
-				if m.bytesread = -1 then
-
-					error 'zip_fread'
-
-				endif
-
-				if m.bytesread = 0 then
-
-					exit
-
-				endif
-
-				m.byteswrite = fwrite(m.fhandle, m.cbytes, m.bytesread)
-
-				if m.byteswrite # m.bytesread
-
-					error 'FWRITE'
-
-				endif
-
-			enddo
-
-			if zip_fclose(m.zip_file_t) # 0 then
-
-				error 'zip_fclose'
+				m.result = .t.
 
 			endif
 
-			if fclose(m.fhandle) # .t.
+			return m.result
 
-				error 'FCLOSE'
+		endif
+
+		if this.evalidfields(m.idx) = 0 then
+
+			this.zipentrygetstats(m.idx)
+
+		endif
+
+		m.cpath = justpath(m.sfilepath)
+
+		_libzip_shcreatedirectory(null, strconv(m.cpath, 5) + 0h00)
+
+		if directory(m.cpath) = .f.
+
+			return m.result
+
+		endif
+
+		if file(m.sfilepath)
+
+			if _libzip_deletefile(m.sfilepath) = 0
+
+				return m.result
 
 			endif
 
 		endif
+
+		m.fhandle = fcreate(m.sfilepath)
+
+		if m.fhandle = -1
+
+			return m.result
+
+		endif
+
+		m.zip_file_t = zip_fopen_index(this.zip_t, m.idx - 1, 0, ZIP_FL_UNCHANGED)
+
+		if m.zip_file_t = 0 then
+
+			error 'zip_fopen_index'
+
+		endif
+
+		m.nbytes = 32 * 1024
+
+		m.cbytes = replicate(0h00, m.nbytes)
+
+		do while .t.
+
+			m.bytesread = zip_fread_isii(m.zip_file_t, @m.cbytes, m.nbytes, 0)
+
+			if m.bytesread = -1 then
+
+				error 'zip_fread'
+
+			endif
+
+			if m.bytesread = 0 then
+
+				exit
+
+			endif
+
+			m.byteswrite = fwrite(m.fhandle, m.cbytes, m.bytesread)
+
+			if m.byteswrite # m.bytesread
+
+				error 'fwrite'
+
+			endif
+
+		enddo
+
+		if zip_fclose(m.zip_file_t) # 0 then
+
+			error 'zip_fclose'
+
+		endif
+
+		if fclose(m.fhandle) # .t.
+
+			error 'fclose'
+
+		endif
+
+		this._setfiletime(m.idx, m.sfilepath)
+
+		m.result = .t.
+
+		return m.result
 
 	endproc
 
@@ -557,7 +649,6 @@ define class _libzip as custom
 		lparameters pidx
 
 		local lnx, result
-
 
 		if empty(m.pidx) then
 
@@ -606,16 +697,16 @@ define class _libzip as custom
 
 			*!* fix entry datetime localtime/utctime difference
 
-			this.evalidfields(m.pidx)		= this._readuint64(this.zip_stat_t)
+			this.evalidfields(m.pidx)		= this._readuint(64, this.zip_stat_t)
 			this.ename(m.pidx)				= this._readpstring(this.zip_stat_t + 8)
-			this.eindex(m.pidx)				= this._readuint64(this.zip_stat_t + 16) + 1
-			this.esize(m.pidx)				= this._readuint64(this.zip_stat_t + 24)
-			this.ecompressedsize(m.pidx)	= this._readuint64(this.zip_stat_t + 32)
-			this.edatetime(m.pidx)			= {^1970/01/01 00:00:00} + this._readuint64(this.zip_stat_t + 40) - this.zip_utcbias
-			this.ecrc(m.pidx)				= this._readuint64(this.zip_stat_t + 48)
-			this.ecompressionmethod(m.pidx)	= this._readuint16(this.zip_stat_t + 52)
-			this.eencryptionmethod(m.pidx)	= this._readuint16(this.zip_stat_t + 54)
-			this.eflags(m.pidx)				= this._readuint32(this.zip_stat_t + 56)
+			this.eindex(m.pidx)				= this._readuint(64, this.zip_stat_t + 16) + 1
+			this.esize(m.pidx)				= this._readuint(64, this.zip_stat_t + 24)
+			this.ecompressedsize(m.pidx)	= this._readuint(64, this.zip_stat_t + 32)
+			this.edatetime(m.pidx)			= {^1970/01/01 00:00:00} + this._readuint(64,this.zip_stat_t + 40) - this.zip_utcbias
+			this.ecrc(m.pidx)				= this._readuint(64, this.zip_stat_t + 48)
+			this.ecompressionmethod(m.pidx)	= this._readuint(16, this.zip_stat_t + 52)
+			this.eencryptionmethod(m.pidx)	= this._readuint(16, this.zip_stat_t + 54)
+			this.eflags(m.pidx)				= this._readuint(32, this.zip_stat_t + 56)
 
 		endif
 
@@ -633,75 +724,21 @@ define class _libzip as custom
 
 	endproc
 
-	procedure _readuint64
+	procedure _readuint
 
-		lparameters paddress
+		lparameters pbits, paddress
 
-		local uint
-
-		m.uint = 0
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 0, 1)) * 2^0
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 1, 1)) * 2^8
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 2, 1)) * 2^16
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 3, 1)) * 2^24
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 4, 1)) * 2^32
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 5, 1)) * 2^40
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 6, 1)) * 2^48
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 7, 1)) * 2^56
-
-		return int(m.uint)
-
-	endproc
-
-	procedure _readuint32
-
-		lparameters paddress
-
-		local uint
+		local lnx, uint
 
 		m.uint = 0
 
-		m.uint = m.uint + asc(sys(2600, m.paddress + 0, 1)) * 2^0
+		for m.lnx = 0 to (m.pbits / 8) - 1
 
-		m.uint = m.uint + asc(sys(2600, m.paddress + 1, 1)) * 2^8
+			m.uint = m.uint + asc(sys(2600, m.paddress + m.lnx, 1)) * 2^((m.lnx) * 8)
 
-		m.uint = m.uint + asc(sys(2600, m.paddress + 2, 1)) * 2^16
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 3, 1)) * 2^24
+		endfor
 
 		return int(m.uint)
-
-	endproc
-
-	procedure _readuint16
-
-		lparameters paddress
-
-		local uint
-
-		m.uint = 0
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 0, 1)) * 2^0
-
-		m.uint = m.uint + asc(sys(2600, m.paddress + 1, 1)) * 2^8
-
-		return int(m.uint)
-
-	endproc
-
-	procedure _readuint8
-
-		lparameters paddress
-
-		return asc(sys(2600, m.paddress + 0, 1))
 
 	endproc
 
@@ -711,7 +748,7 @@ define class _libzip as custom
 
 		local pointer, strlen
 
-		m.pointer = this._readuint32(m.paddress)
+		m.pointer = this._readuint(32, m.paddress)
 
 		m.strlen = _libzip_lstrlen(m.pointer)
 
@@ -719,37 +756,53 @@ define class _libzip as custom
 
 	endproc
 
-	procedure destroy
+	procedure _setfiletime
 
-		if this.zip_t # 0
+		lparameters  pidx, psfilepath
 
-			zip_close(this.zip_t)
+		local eflen, efptr, fatime, fctime, fmtime, hFile
 
-		endif
+		m.eflen = 0
 
-		if this.zip_buffer # 0 then
+		m.efptr = zip_file_extra_field_get_by_id(this.zip_t, m.pidx - 1, 0, 0x000a, 0x0000, @m.eflen, ZIP_FL_CENTRAL)
 
-			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_buffer)
+		if m.efptr # 0 and m.eflen = 32
 
-		endif
+			m.fmtime = sys(2600, m.efptr + 8, 8)
+			m.fatime = sys(2600, m.efptr + 16, 8)
+			m.fctime = sys(2600, m.efptr + 24, 8)
 
-		if this.zip_stat_t # 0 then
+			m.hFile = _libzip_createfile(m.psfilepath, GENERIC_WRITE, FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL + FILE_FLAG_BACKUP_SEMANTICS, 0)
 
-			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_stat_t)
+			if m.hFile # 0
 
-		endif
+				_libzip_setfiletime(m.hFile, m.fctime, m.fatime, m.fmtime)
 
-		zip_error_fini(this.zip_error_t)
-
-		if this.zip_error_t # 0 then
-
-			_libzip_heapfree(_libzip_getprocessheap(), 0, this.zip_error_t)
+				_libzip_closehandle(m.hFile)
+				
+			endif
 
 		endif
 
 	endproc
 
 enddefine
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

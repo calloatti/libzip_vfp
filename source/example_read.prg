@@ -1,14 +1,10 @@
 *!* example_read
 
-Local lnx, outpath, ozip, plog, zipname, zippassword
+local lnx, ozip, plog, zipname
 
 clear
 
 m.zipname = lower(justpath(sys(16))) + '\example.zip'
-
-m.zippassword = '1234'
-
-m.outpath = addbs(justpath(m.zipname)) + juststem(m.zipname)
 
 if not file(m.zipname)
 
@@ -20,10 +16,15 @@ endif
 
 m.plog = forceext(m.zipname, 'txt')
 
+?'CREATING REPORT PLEASE WAIT'
+
+set console off
+
 set printer to (m.plog)
+
 set printer on
 
-m.ozip = _libzipopenfile(m.zipname, m.zippassword)
+m.ozip = _libzipopenfile(m.zipname)
 
 ?m.ozip.zipfilename
 
@@ -32,8 +33,6 @@ m.ozip.zipentrygetstats()
 ?'EVALIDFIEL     EINDEX      ESIZE  ECOMPSIZE EDATETIM                ECRC32 ECOMPRESSI   EENCRYPT     EFLAGS EISDIRECTO ' + padr('ENAME', 50) + ' EPATH'
 
 for m.lnx = 1 to m.ozip.entries
-
-	m.ozip.zipentrytofile(m.lnx, m.outpath)
 
 	?m.ozip.evalidfields(m.lnx), ;
 		m.ozip.eindex(m.lnx), ;
@@ -50,11 +49,13 @@ for m.lnx = 1 to m.ozip.entries
 
 endfor
 
-
 set printer off
+
 set printer to
 
-declare integer ShellExecute in SHELL32.dll as _apiShellExecute ;
+set console on
+
+declare integer ShellExecute in shell32.dll as _apishellexecute ;
 	integer nhWnd, ;
 	string  lpOperation, ;
 	string  lpFile, ;
@@ -62,11 +63,10 @@ declare integer ShellExecute in SHELL32.dll as _apiShellExecute ;
 	string  lpDirectory, ;
 	integer nShowCmd
 
-_apiShellExecute(_vfp.hwnd, 'open', m.plog, '', '', 1)
+_apishellexecute(_vfp.hwnd, 'open', m.plog, '', '', 1)
 
 
 
 
 
 
-  

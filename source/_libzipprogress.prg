@@ -2,7 +2,7 @@
 
 lparameters pprogress, pzipfilename
 
-wait 'Creating archive ' + m.pzipfilename + ' ' + transform(m.pprogress) + '%' window nowait
+wait 'Creating zip archive ' + m.pzipfilename + ' ' + transform(m.pprogress) + '%' window nowait
 
 
 

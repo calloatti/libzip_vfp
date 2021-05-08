@@ -1,0 +1,6 @@
+https://libzip.org/
+https://zlib.net/
+https://github.com/nih-at/libzip/
+https://github.com/madler/zlib
+https://github.com/microsoft/vcpkg
+https://github.com/ChristianEhlscheid/vfp2c32
