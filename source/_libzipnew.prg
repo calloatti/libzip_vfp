@@ -2,10 +2,7 @@
 
 local narea
 
-declare integer HeapAlloc in kernel32.dll as _libzip_heapalloc integer hHeap, integer dwFlags, integer dwBytes
-declare integer HeapFree in kernel32.dll as _libzip_heapfree integer hheap, integer dwflags, integer lpmem
-declare integer HeapSize in kernel32.dll as _libzip_heapsize integer hHeap, integer dwFlags, integer lpMem
-declare integer GetProcessHeap in kernel32.dll as _libzip_getprocessheap
+_libzipinit()
 
 m.narea = select()
 

@@ -5,35 +5,9 @@
 lparameters pzipfilename, pzippassword, pzipdatetime, puseprogress
 
 local oresult as 'empty'
-local callback, ccollate, crc32, dprecision, encmethod, errorp, extra_field_data, freep, narea
-local nindex, result, resultstr, sfilepath, time_zone_information, userdata, zfilepath, zip_error_t
-local zip_source_t, zip_t, pzipfiletime, pzipsystemtime
-
-declare integer zip_open in ZIP_DLL string ppath, integer pflags, integer @perrorp
-declare integer	zip_close in ZIP_DLL integer zip_t
-declare integer zip_source_file in ZIP_DLL integer zip_t, string filename, integer startlow, integer start_high, integer lenlow, integer lenhigh
-declare integer zip_file_add in ZIP_DLL integer zip_t, string entryname, integer zip_source_t, integer zip_flags_t
-declare integer zip_get_error in ZIP_DLL integer zip_t
-declare string  zip_error_strerror in ZIP_DLL integer zip_error_t
-declare integer zip_dir_add in ZIP_DLL integer zip_t, string entryname, integer flags_t
-declare integer zip_source_buffer in ZIP_DLL integer zip_t, integer datap, integer nlenlow, integer nlenhigh, integer freep
-declare integer zip_file_extra_field_set in ZIP_DLL integer zip_t, integer indexlow, integer indexhigh, short extra_field_id, short extra_field_index, string extra_field_data, short datalen, integer zip_flags_t
-declare integer zip_file_set_mtime in ZIP_DLL integer zip_t, integer indexlow, integer indexhigh, integer time_tlow, integer time_thigh, integer zip_flags_t
-declare zip_register_cancel_callback_with_state in ZIP_DLL integer zip_t, integer zip_cancel_callback, integer ud_free, integer ud
-declare zip_register_progress_callback_with_state in ZIP_DLL integer zip_t, double dprecision, integer zip_progress_callback, integer ud_free, integer ud
-declare zip_register_progress_callback in ZIP_DLL integer zip_t, integer zip_progress_callback
-declare integer zip_encryption_method_supported in ZIP_DLL short int16_method, integer iencrypt
-declare integer zip_set_default_password in ZIP_DLL integer zip_t, string cpassword
-declare integer zip_file_set_encryption in ZIP_DLL integer zip_t, integer indexlow, integer indexhigh, short uint16method, string cpassword
-
-declare integer GetTimeZoneInformation in kernel32.dll as _libzip_gettimezoneinformation string @time_zone_information
-declare integer GetFileTime in kernel32.dll as _libzip_getfiletime integer hfile, string @lpcreationtime, string @lplastaccesstime, string @lplastwritetime
-declare GetSystemTime in kernel32.dll as _libzip_getsystemtime string @lpsystemtime
-declare GetSystemTimeAsFileTime in kernel32.dll as _libzip_getsystemtimeasfiletime string @lpsystemtimeasfiletime
-declare integer SystemTimeToFileTime in kernel32.dll as _libzip_systemtimetofiletime string lpsystemtime, string @lpfiletime
-
-declare integer CreateFile in kernel32.dll as _libzip_createfile string lpfilename, integer dwdesiredaccess, integer dwsharemode, integer lpsecurityattributes, integer dwcreationdisposition, integer dwflagsandattributes, integer htemplatefile
-declare integer CloseHandle in kernel32.dll as _libzip_closehandle integer hobject
+local narea, sfilepath, zfilepath, crc32, ccollate, errorp, zip_t, encmethod, result
+local time_zone_information, pzipfiletime, pzipsystemtime, nindex, freep, zip_source_t
+local extra_field_data, zip_error_t, callback, dprecision, userdata, resultstr
 
 m.narea = select()
 
@@ -52,6 +26,7 @@ select '_libzip_dirs'
 scan
 
 	m.sfilepath	= justpath(rtrim(_libzip_dirs.sfilepath, 1, '/'))
+
 	m.zfilepath	= justpath(rtrim(_libzip_dirs.zfilepath, 1, '/'))
 
 	do while not empty(m.zfilepath)
@@ -450,6 +425,7 @@ procedure _libzip_initvfp2c32
 	endif
 
 endproc
+
 
 
 

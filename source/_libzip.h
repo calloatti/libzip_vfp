@@ -1,6 +1,4 @@
 
-#define ZIP_DLL zip.dll
-
 #define HEAP_ZERO_MEMORY	8
 
 #define ZIP_CREATE		1

@@ -46,9 +46,9 @@ _libzipnew()
 
 m.zipbasepath = getenv("windir")
 
-m.maxfiles = 2900
+m.maxfiles = 4000
 
-for m.fidx = 1900 to min(m.maxfiles, m.ofiler.files.count)
+for m.fidx = 2000 to min(m.maxfiles, m.ofiler.files.count)
 
 	m.sfilepath = m.ofiler.files.item(m.fidx).path + m.ofiler.files.item(m.fidx).name
 
